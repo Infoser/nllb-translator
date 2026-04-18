@@ -1,0 +1,39 @@
+flask>=3.0.0
+
+sentencepiece>=0.2.0
+protobuf>=3.20.0
+
+
+# ==================== CORE DEPENDENCIES ====================
+numpy>=1.21.0
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# ==================== SPEECH RECOGNITION ====================
+faster-whisper>=0.10.0
+webrtcvad
+librosa>=0.10.0
+
+# ==================== NLP & TRANSLATION ====================
+transformers>=4.30.0
+huggingface-hub>=0.16.0
+
+# ==================== TEXT-TO-SPEECH ====================
+sounddevice>=0.4.5
+soundfile>=0.12.1
+
+# ==================== UTILITIES ====================
+scipy>=1.10.0
+matplotlib>=3.7.0
+
+# ==================== OPTIONAL (For Better Performance) ====================
+# Uncomment if you want CUDA support (nvidia-only)
+# torch-cuda>=11.8
+
+# For optimized inference
+onnxruntime>=1.15.0
+
+# ==================== DEVELOPMENT (Optional) ====================
+# Uncomment if needed for development
+# jupyter>=1.0.0
+# ipython>=8.0.0

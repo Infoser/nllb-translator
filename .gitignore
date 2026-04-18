@@ -1,0 +1,35 @@
+# Virtual environments
+venv/
+new312/
+./venv
+
+# Model weights (downloaded from HuggingFace Hub at runtime)
+nllb_training/
+
+# Large archives
+*.zip
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Old experiments & datasets
+old/
+Dataset/
+
+# IDE
+.vscode/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Misc scripts not needed in deployment
+gpucheck.py
+main.py
+main2.py
+main3.py
+mega.py
+metrics.txt
+docker-compose.yml

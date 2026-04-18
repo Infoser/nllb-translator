@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>छत्तीसगढ़ी → हिंदी अनुवादक</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    :root {
+      --saffron:  #E8650A;
+      --gold:     #D4920A;
+      --green:    #1E7A45;
+      --ivory:    #FBF5E8;
+      --ink:      #1A1008;
+      --ash:      #6B5C48;
+      --border:   #DEC07A;
+      --white:    #FFFFFF;
+      --shadow:   rgba(140,80,0,0.12);
+      --red:      #B03020;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans Devanagari', sans-serif;
+      background: var(--ivory);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* ── Top tricolor strip ── */
+    .strip {
+      height: 5px;
+      background: linear-gradient(90deg, var(--saffron) 0% 33%, #fff 33% 66%, var(--green) 66% 100%);
+    }
+
+    /* ── Header ── */
+    header {
+      background: #2A1200;
+      padding: 22px 20px 18px;
+      text-align: center;
+    }
+    header h1 {
+      font-family: 'Tiro Devanagari Hindi', serif;
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      color: #F0C060;
+      letter-spacing: .5px;
+    }
+    header p {
+      color: rgba(240,192,96,.6);
+      font-size: .78rem;
+      margin-top: 4px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ── GPU pill ── */
+    .gpu-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: .72rem;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.15);
+      color: rgba(240,220,180,.7);
+    }
+    .gpu-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #888;
+      flex-shrink: 0;
+    }
+    .gpu-pill.on .gpu-dot  { background: #3ecf6e; box-shadow: 0 0 5px #3ecf6e; }
+    .gpu-pill.err .gpu-dot { background: #e05050; }
+
+    /* ── Loading overlay ── */
+    #loadOverlay {
+      position: fixed; inset: 0;
+      background: rgba(26,10,4,.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 18px;
+      padding: 32px;
+      transition: opacity .4s;
+    }
+    #loadOverlay.hidden { opacity: 0; pointer-events: none; }
+
+    .load-title {
+      font-family: 'Tiro Devanagari Hindi', serif;
+      font-size: 1.4rem;
+      color: #F0C060;
+    }
+    .load-msg {
+      font-size: .9rem;
+      color: rgba(240,220,180,.75);
+      min-height: 22px;
+      text-align: center;
+    }
+    .load-track {
+      width: min(360px, 90vw);
+      height: 8px;
+      background: rgba(255,255,255,.1);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .load-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--saffron), var(--gold));
+      border-radius: 99px;
+      transition: width .4s ease;
+    }
+    .load-pct {
+      font-size: .8rem;
+      color: rgba(240,192,96,.8);
+      font-weight: 600;
+    }
+    .load-error {
+      color: #ff8080;
+      font-size: .85rem;
+      text-align: center;
+      display: none;
+    }
+
+    /* ── Main layout ── */
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 24px 16px 56px;
+    }
+
+    /* ── Translator card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 2px 18px var(--shadow);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-head {
+      background: linear-gradient(90deg, var(--saffron), var(--gold));
+      padding: 9px 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-head h2 {
+      font-size: .92rem;
+      color: #fff;
+      font-weight: 600;
+    }
+    .card-body { padding: 18px; }
+
+    /* ── Two-panel layout ── */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 28px 1fr;
+      gap: 0;
+      align-items: start;
+    }
+    @media(max-width:600px){
+      .panels { grid-template-columns: 1fr; }
+      .arrow  { transform: rotate(90deg); margin: 6px auto; }
+    }
+    .panel-lbl {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .panel-lbl.src { color: var(--red); }
+    .panel-lbl.tgt { color: var(--green); }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: 'Noto Sans Devanagari', sans-serif;
+      font-size: 1rem;
+      line-height: 1.7;
+      color: var(--ink);
+      resize: vertical;
+      background: var(--ivory);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    textarea:focus { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,101,10,.1); }
+    textarea[readonly] { background: #FFF8E8; border-color: #DEC07A; cursor: default; }
+
+    .arrow {
+      display: flex; align-items: center; justify-content: center;
+      padding-top: 26px; color: var(--saffron);
+    }
+
+    /* ── Bottom controls ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      align-items: center;
+    }
+
+    .btn-mic {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: none;
+      background: var(--red);
+      color: #fff;
+      font-size: 1.1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex; align-items:center; justify-content:center;
+      box-shadow: 0 2px 10px rgba(176,48,32,.3);
+      transition: transform .15s;
+    }
+    .btn-mic:hover  { transform: scale(1.08); }
+    .btn-mic.active { animation: mic-pulse 1s infinite; }
+    @keyframes mic-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(176,48,32,.5); }
+      50%      { box-shadow: 0 0 0 8px rgba(176,48,32,0); }
+    }
+
+    .btn-go {
+      flex: 1;
+      min-width: 140px;
+      padding: 11px 20px;
+      background: linear-gradient(135deg, var(--saffron), #C04800);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Noto Sans Devanagari', sans-serif;
+      font-size: .95rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(232,101,10,.3);
+      transition: transform .15s, opacity .15s;
+      display: flex; align-items:center; justify-content:center; gap:6px;
+    }
+    .btn-go:hover    { transform: translateY(-1px); }
+    .btn-go:disabled { opacity: .55; pointer-events: none; }
+
+    .btn-clear {
+      padding: 11px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--ash);
+      font-size: .82rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-clear:hover { background: #FEF3E2; color: var(--saffron); }
+
+    /* Translate spinner */
+    .spin {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .5s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-go.busy .spin     { display: block; }
+    .btn-go.busy .btn-text { display: none; }
+
+    /* Output actions */
+    .out-actions {
+      display: flex; gap:6px; margin-top:8px;
+      opacity:0; transform:translateY(4px);
+      transition: opacity .25s, transform .25s;
+    }
+    .out-actions.show { opacity:1; transform:none; }
+
+    .btn-sm {
+      padding: 5px 11px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      font-size: .75rem;
+      cursor: pointer;
+      color: var(--ash);
+      transition: all .15s;
+    }
+    .btn-sm:hover   { background: #FEF8EC; border-color: var(--gold); color: var(--ink); }
+    .btn-sm.ok      { background: #EAF7EE; border-color: var(--green); color: var(--green); }
+
+    /* Mic label */
+    .mic-lbl {
+      font-size: .73rem; color: var(--ash); margin-top:5px;
+      font-style: italic; min-height:16px;
+    }
+    .mic-lbl.live { color: var(--red); font-style:normal; font-weight:600; }
+
+    /* Error */
+    .err-box {
+      background: #FDF0EE; border: 1px solid #E8A090;
+      border-radius:8px; padding:10px 14px;
+      color: var(--red); font-size:.88rem;
+      margin-top:10px; display:none;
+    }
+    .err-box.show { display:block; }
+
+    /* ── History ── */
+    .hist-actions {
+      display:flex; gap:6px; justify-content:flex-end; margin-bottom:12px;
+    }
+    .hist-list { list-style:none; }
+    .hist-item {
+      display:grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px 14px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      margin-bottom:8px;
+      background:var(--ivory);
+      cursor:pointer;
+      transition:box-shadow .2s;
+      animation: fadeUp .25s ease;
+    }
+    .hist-item:hover { box-shadow:0 2px 10px var(--shadow); }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+    .hist-src { font-size:.9rem; }
+    .hist-tgt { font-size:.9rem; color:var(--green); font-weight:600; }
+    .hist-time{ font-size:.68rem; color:var(--ash); white-space:nowrap; text-align:right; }
+    .hist-empty{ text-align:center; color:var(--ash); font-style:italic; font-size:.88rem; padding:28px 0; }
+
+    @media(max-width:600px){
+      .hist-item { grid-template-columns:1fr; }
+      .hist-time { text-align:left; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="strip"></div>
+
+<header>
+  <h1>छत्तीसगढ़ी → हिंदी अनुवादक</h1>
+  <p>Chhattisgarhi · Hindi · Neural Translation</p>
+  <div class="gpu-pill" id="gpuPill">
+    <span class="gpu-dot"></span>
+    <span id="gpuTxt">GPU जाँच रहे हैं…</span>
+  </div>
+</header>
+
+<!-- Loading overlay -->
+<div id="loadOverlay">
+  <div class="load-title">मॉडल लोड हो रहा है</div>
+  <div class="load-msg"  id="loadMsg">शुरू हो रहा है…</div>
+  <div class="load-track"><div class="load-fill" id="loadFill"></div></div>
+  <div class="load-pct"  id="loadPct">0%</div>
+  <div class="load-error" id="loadErr"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- Translator -->
+  <div class="card">
+    <div class="card-head"><span>🔤</span><h2>अनुवाद करें</h2></div>
+    <div class="card-body">
+
+      <div class="panels">
+        <div>
+          <div class="panel-lbl src">छत्तीसगढ़ी</div>
+          <textarea id="srcText" placeholder="यहाँ पाठ लिखें या माइक से बोलें…" spellcheck="false"></textarea>
+          <div class="mic-lbl" id="micLbl">🎤 माइक दबाएं और बोलें (Ctrl+Enter = अनुवाद)</div>
+        </div>
+
+        <div class="arrow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </div>
+
+        <div>
+          <div class="panel-lbl tgt">हिंदी</div>
+          <textarea id="tgtText" readonly placeholder="हिंदी अनुवाद यहाँ दिखेगा…"></textarea>
+          <div class="out-actions" id="outActions">
+            <button class="btn-sm" id="btnCopy">📋 कॉपी</button>
+            <button class="btn-sm" id="btnDl">⬇ डाउनलोड</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn-mic" id="btnMic">🎤</button>
+        <button class="btn-go"  id="btnGo" disabled>
+          <span class="btn-text">✨ अनुवाद करें</span>
+          <div class="spin"></div>
+        </button>
+        <button class="btn-clear" id="btnClear">✕ साफ</button>
+      </div>
+
+      <div class="err-box" id="errBox"></div>
+
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="card">
+    <div class="card-head"><span>📜</span><h2>इतिहास</h2></div>
+    <div class="card-body">
+      <div class="hist-actions">
+        <button class="btn-sm" id="btnDlAll">⬇ सभी डाउनलोड</button>
+        <button class="btn-sm" id="btnClrHist">🗑 साफ करें</button>
+      </div>
+      <ul class="hist-list" id="histList">
+        <li class="hist-empty" id="histEmpty">अभी तक कोई अनुवाद नहीं।</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Elements ──────────────────────────────────────────────────────────────
+  const srcText    = document.getElementById('srcText');
+  const tgtText    = document.getElementById('tgtText');
+  const btnMic     = document.getElementById('btnMic');
+  const btnGo      = document.getElementById('btnGo');
+  const btnClear   = document.getElementById('btnClear');
+  const btnCopy    = document.getElementById('btnCopy');
+  const btnDl      = document.getElementById('btnDl');
+  const btnDlAll   = document.getElementById('btnDlAll');
+  const btnClrHist = document.getElementById('btnClrHist');
+  const micLbl     = document.getElementById('micLbl');
+  const errBox     = document.getElementById('errBox');
+  const outActions = document.getElementById('outActions');
+  const histList   = document.getElementById('histList');
+  const histEmpty  = document.getElementById('histEmpty');
+  const loadOverlay= document.getElementById('loadOverlay');
+  const loadMsg    = document.getElementById('loadMsg');
+  const loadFill   = document.getElementById('loadFill');
+  const loadPct    = document.getElementById('loadPct');
+  const loadErr    = document.getElementById('loadErr');
+  const gpuPill    = document.getElementById('gpuPill');
+  const gpuTxt     = document.getElementById('gpuTxt');
+
+  let history = JSON.parse(localStorage.getItem('txHistory') || '[]');
+  renderHistory();
+
+  // ── Loading bar (polls /load-status every 600ms) ──────────────────────────
+  let loadDone = false;
+  const loadTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/load-status');
+      const d = await r.json();
+
+      loadMsg.textContent  = d.message;
+      loadFill.style.width = d.percent + '%';
+      loadPct.textContent  = d.percent + '%';
+
+      if (d.error) {
+        loadErr.style.display = 'block';
+        loadErr.textContent   = d.error;
+        clearInterval(loadTimer);
+        return;
+      }
+
+      if (d.ready && !loadDone) {
+        loadDone = true;
+        clearInterval(loadTimer);
+        setTimeout(() => {
+          loadOverlay.classList.add('hidden');
+          btnGo.disabled = false;
+          fetchGpuInfo();
+        }, 600);
+      }
+    } catch(e) { /* retry next tick */ }
+  }, 600);
+
+  // ── GPU pill ──────────────────────────────────────────────────────────────
+  async function fetchGpuInfo() {
+    try {
+      const r = await fetch('/gpu-info');
+      const d = await r.json();
+      gpuPill.classList.add('on');
+      gpuTxt.textContent = d.gpu_name + '  ·  ' + d.memory_allocated_mb + ' MB';
+    } catch(e) {
+      gpuPill.classList.add('err');
+      gpuTxt.textContent = 'GPU info unavailable';
+    }
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  const socket = io();
+
+  socket.on('connect',          ()  => console.log('[WS] connected'));
+  socket.on('disconnect',       ()  => console.log('[WS] disconnected'));
+  socket.on('translate_start',  ()  => setBusy(true));
+  socket.on('translate_result', (d) => {
+    setBusy(false);
+    tgtText.value = d.translation;
+    outActions.classList.add('show');
+    addHistory(srcText.value.trim(), d.translation);
+    hideErr();
+  });
+  socket.on('translate_error', (d) => {
+    setBusy(false);
+    showErr(d.error);
+  });
+
+  // ── Translate button ──────────────────────────────────────────────────────
+  btnGo.addEventListener('click', doTranslate);
+  srcText.addEventListener('keydown', e => { if(e.ctrlKey && e.key==='Enter') doTranslate(); });
+
+  function doTranslate() {
+    const text = srcText.value.trim();
+    if (!text) { showErr('कृपया पहले पाठ दर्ज करें।'); return; }
+    hideErr();
+    setBusy(true);
+    socket.emit('translate', { text });
+  }
+
+  function setBusy(v) {
+    btnGo.classList.toggle('busy', v);
+    btnGo.disabled = v;
+  }
+
+  // ── Clear ─────────────────────────────────────────────────────────────────
+  btnClear.addEventListener('click', () => {
+    srcText.value = ''; tgtText.value = '';
+    outActions.classList.remove('show');
+    hideErr();
+  });
+
+  // ── Copy ──────────────────────────────────────────────────────────────────
+  btnCopy.addEventListener('click', () => {
+    if (!tgtText.value) return;
+    navigator.clipboard.writeText(tgtText.value).then(() => {
+      btnCopy.textContent = '✅ कॉपी!';
+      btnCopy.classList.add('ok');
+      setTimeout(() => { btnCopy.textContent='📋 कॉपी'; btnCopy.classList.remove('ok'); }, 2000);
+    });
+  });
+
+  // ── Download current ──────────────────────────────────────────────────────
+  btnDl.addEventListener('click', () => {
+    if (!tgtText.value) return;
+    dlText(`छत्तीसगढ़ी:\n${srcText.value}\n\nहिंदी:\n${tgtText.value}`, 'translation.txt');
+  });
+
+  // ── Download all history ──────────────────────────────────────────────────
+  btnDlAll.addEventListener('click', () => {
+    if (!history.length) return;
+    const txt = history.map((h,i)=>
+      `[${i+1}] ${h.time}\nछत्तीसगढ़ी: ${h.src}\nहिंदी:      ${h.tgt}`
+    ).join('\n\n' + '─'.repeat(40) + '\n\n');
+    dlText(txt, 'history.txt');
+  });
+
+  // ── Clear history ─────────────────────────────────────────────────────────
+  btnClrHist.addEventListener('click', () => {
+    if (!history.length || !confirm('पूरा इतिहास साफ करें?')) return;
+    history = []; saveHistory(); renderHistory();
+  });
+
+  // ── Speech recognition ────────────────────────────────────────────────────
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recog = null, listening = false;
+
+  if (SR) {
+    recog = new SR();
+    recog.lang = 'hi-IN';
+    recog.continuous = true;
+    recog.interimResults = true;
+    recog.maxAlternatives = 1;
+    
+    recog.onstart  = () => { listening=true; btnMic.classList.add('active'); btnMic.textContent='🔴'; micLbl.textContent='🎙️ सुन रहा हूँ…'; micLbl.classList.add('live'); };
+    recog.onresult = e => {
+    let final = '';
+    let interim = '';
+    for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+            final += e.results[i][0].transcript + ' ';
+        } else {
+            interim += e.results[i][0].transcript;
+        }
+    }
+    srcText.value = final + interim;
+};
+    recog.onend = () => {
+    // If user hasn't manually stopped, restart to avoid silence timeout
+    if (listening) {
+        recog.start();
+        return;
+    }
+    btnMic.classList.remove('active');
+    btnMic.textContent = '🎤';
+    micLbl.textContent = '🎤 माइक दबाएं और बोलें (Ctrl+Enter = अनुवाद)';
+    micLbl.classList.remove('live');
+};
+    recog.onerror  = e => { listening=false; btnMic.classList.remove('active'); btnMic.textContent='🎤'; micLbl.textContent='⚠️ माइक त्रुटि: '+e.error; micLbl.classList.remove('live'); };
+
+    btnMic.addEventListener('click', () => {
+    if (listening) {
+        listening = false;   // set false BEFORE stop() so onend doesn't restart
+        recog.stop();
+    } else {
+        listening = true;
+        recog.start();
+    }
+});
+  } else {
+    btnMic.disabled = true;
+    micLbl.textContent = '⚠️ Browser speech not supported';
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function showErr(msg) { errBox.textContent=msg; errBox.classList.add('show'); }
+  function hideErr()    { errBox.classList.remove('show'); }
+
+  function addHistory(src, tgt) {
+    const now  = new Date();
+    const time = now.toLocaleString('hi-IN', {hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+    history.unshift({src, tgt, time});
+    if (history.length > 100) history.pop();
+    saveHistory(); renderHistory();
+  }
+  function saveHistory() { localStorage.setItem('txHistory', JSON.stringify(history)); }
+
+  function renderHistory() {
+    histList.querySelectorAll('.hist-item').forEach(el=>el.remove());
+    histEmpty.style.display = history.length ? 'none' : '';
+    history.forEach(h => {
+      const li = document.createElement('li');
+      li.className = 'hist-item';
+      li.innerHTML = `<div class="hist-src">${esc(h.src)}</div><div class="hist-tgt">${esc(h.tgt)}</div><div class="hist-time">${h.time}</div>`;
+      li.addEventListener('click', () => {
+        srcText.value=h.src; tgtText.value=h.tgt;
+        outActions.classList.add('show');
+        window.scrollTo({top:0,behavior:'smooth'});
+      });
+      histList.appendChild(li);
+    });
+  }
+
+  function dlText(content, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], {type:'text/plain;charset=utf-8'}));
+    a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>

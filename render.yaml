@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nllb-translator
+    runtime: docker
+    plan: standard
+    healthCheckPath: /load-status
+    envVars:
+      - key: HF_MODEL_REPO
+        value: YOUR_USERNAME/nllb-chhattisgarhi-hindi
+      - key: HF_HOME
+        value: /tmp/hf_cache
+      - key: SECRET_KEY
+        generateValue: true

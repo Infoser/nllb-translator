@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Large files not needed in container
+Final.zip
+Dataset/
+old/
+new/
+new312/
+mega.py
+main.py
+main2.py
+main3.py
+gpucheck.py
+
+# OS files
+.DS_Store
+Thumbs.db
