@@ -2,11 +2,12 @@ services:
   - type: web
     name: nllb-translator
     runtime: docker
+    repo: https://github.com/Infoser/nllb-translator
     plan: standard
     healthCheckPath: /load-status
     envVars:
       - key: HF_MODEL_REPO
-        value: YOUR_USERNAME/nllb-chhattisgarhi-hindi
+        value: infoser090/AksharaDhara
       - key: HF_HOME
         value: /tmp/hf_cache
       - key: SECRET_KEY
